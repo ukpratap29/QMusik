@@ -1,0 +1,81 @@
+#main-content {
+    background: #ffffff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /* padding-bottom: 80px; */
+}
+
+#header {
+    background: #F0E4D3;
+}
+
+#appName {
+    color: #7C444F;
+    font-family: "Rubik Wet Paint", system-ui;
+    font-weight: 400;
+    font-style: normal;
+}
+
+#tagline {
+    color: #9F5255;
+    font-family: "Square Peg", cursive;
+    font-size: large;
+    font-style: italic;
+}
+
+#footer {
+    color: #F0E4D3;
+    font-family: "Square Peg", cursive;
+    font-size: large;
+    font-style: italic;
+    background: #7C444F;
+    /* position: static !important; */
+
+    margin-top: auto;   /* THIS is the magic */
+    padding: 15px;
+}
+
+.action-buttons {
+    position: relative;
+}
+
+.qm-btn {
+    background-color: #F0E4D3;
+    color: #7C444F;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1rem;
+    border-radius: 25px;
+    font-family: "Rubik Wet Paint", system-ui;
+    letter-spacing: 3px;
+    transition: 0.2s ease;
+    width: 210px;
+}
+
+.qm-btn:hover {
+    background-color: #7C444F;
+    color: #F0E4D3;
+    transform: translateY(-2px);
+    transform: scale(1.2);
+}
+
+.qm-btn:active {
+    transform: scale(0.75);
+} 
+
+#host {
+    margin-top: 190px;
+
+}
+
+#guest {
+    margin-top: 50px;
+}
+
+#search-res-q {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}

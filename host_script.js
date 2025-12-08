@@ -3,7 +3,13 @@
 // Update Queue
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    getDoc
+} from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -14,6 +20,10 @@ const firebaseConfig = {
     messagingSenderId: "904530626138",
     appId: "1:904530626138:web:0e2bc984a639b0773eba63"
 };
+
+// Global playback state (host-side)
+let isPlaying = false;
+let playTimer = null;
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -33,50 +43,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputField = document.getElementById("enter-code");
     const orText = document.getElementById("or");
 
-    const generatedCodeElement = document.createElement("p"); // Create a div to hold the code
-    generatedCodeElement.id = "generated-code"; // Add an ID for styling or reference
-    playlistDiv.appendChild(generatedCodeElement); // Append it to the body or a specific container
+    const generatedCodeElement = document.createElement("p");
+    generatedCodeElement.id = "generated-code";
+    playlistDiv.appendChild(generatedCodeElement);
 
     const genCodeNote = document.createElement("p");
     genCodeNote.id = "gen-code-note";
     genCodeNote.textContent = "Share this code with others to join your playlist!";
-    genCodeNote.style.display = "none"; // initially hidden
+    genCodeNote.style.display = "none";
     genCodeNote.classList.add("text-muted");
-    playlistDiv.appendChild(genCodeNote); // appended but hidden
+    playlistDiv.appendChild(genCodeNote);
 
     const refreshBtn = document.createElement("button");
     refreshBtn.id = "refresh-code";
     refreshBtn.textContent = "Generate New Code";
     refreshBtn.classList.add("vintage-btn", "mt-2");
-    refreshBtn.style.display = "none";  // initially hidden
+    refreshBtn.style.display = "none";
     playlistDiv.appendChild(refreshBtn);
 
     const createPlaylistBtn = document.createElement("button");
     createPlaylistBtn.id = "cr-playlist-btn";
     createPlaylistBtn.textContent = "Create Playlist";
     createPlaylistBtn.classList.add("vintage-btn", "mt-3");
-    createPlaylistBtn.style.display = "none";  // initially hidden
+    createPlaylistBtn.style.display = "none";
     playlistDiv.appendChild(createPlaylistBtn);
 
-    // Handle "Generate Code" button click
-    generateCodeButton.addEventListener("click", () => {
-        // Generate a random 5-character code
-        const code = generateRandomCode(5);
-        // Display the generated code
-        generatedCodeElement.textContent = `Code: ${code}`;
-        showNewUIFields();
-        hideOldUIFields();
-    });
-
-    refreshBtn.addEventListener("click", () => {
-        showOldUIFields();
-        inputField.value = "";
-
-        generatedCodeElement.textContent = "";
-        hideNewUIFields();
-    });
-
-    // Function to generate a random alphanumeric code
+    // Generate a random 5-character code
     function generateRandomCode(length) {
         const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
         let result = "";
@@ -87,17 +79,29 @@ document.addEventListener("DOMContentLoaded", () => {
         return result;
     }
 
-    // Handle input field changes
+    generateCodeButton.addEventListener("click", () => {
+        const code = generateRandomCode(5);
+        generatedCodeElement.textContent = `Code: ${code}`;
+        showNewUIFields();
+        hideOldUIFields();
+    });
+
+    refreshBtn.addEventListener("click", () => {
+        showOldUIFields();
+        inputField.value = "";
+        generatedCodeElement.textContent = "";
+        hideNewUIFields();
+    });
+
     inputField.addEventListener("input", () => {
         const enteredCode = inputField.value.trim();
 
-        // Display the entered code if it's not empty
-        if (enteredCode.length == 5) {
+        if (enteredCode.length === 5) {
             generatedCodeElement.textContent = `Code: ${enteredCode}`;
             showNewUIFields();
             hideOldUIFields();
         } else {
-            generatedCodeElement.textContent = ""; // Clear the text if input is empty
+            generatedCodeElement.textContent = "";
             hideNewUIFields();
         }
     });
@@ -129,26 +133,26 @@ document.addEventListener("DOMContentLoaded", () => {
     createPlaylistBtn.addEventListener("click", async () => {
         const sessionCode = generatedCodeElement.textContent.replace("Code: ", "");
         await createNewSession(sessionCode);
+
         refreshBtn.style.display = "none";
         createPlaylistBtn.style.display = "none";
+
         fetch("search_res_queue.html")
             .then(res => res.text())
             .then(html => {
-                document.getElementById('search-res-q').innerHTML = html;
+                document.getElementById("search-res-q").innerHTML = html;
 
-                // Attach event listeners inside the loaded HTML
+                // Attach event listeners inside the loaded HTML for THIS session
                 initializeSearchUI(sessionCode);
             });
     });
 });
 
-
-// ---------------------------------------------
-// SEARCH + ADD TO QUEUE FUNCTIONALITY
-// ---------------------------------------------
+// -------------------------------------------------
+// SEARCH + QUEUE + PLAYBACK FOR A GIVEN SESSION
+// -------------------------------------------------
 
 function initializeSearchUI(sessionCode) {
-
     const searchBox = document.getElementById("search-box");
     const searchBtn = document.getElementById("search-song-btn");
     const resultsDiv = document.getElementById("search-results");
@@ -156,22 +160,53 @@ function initializeSearchUI(sessionCode) {
 
     const API_KEY = "AIzaSyA6Ncf-06nnKsNExGaCyzsMdddLeGJiefc";
 
-    // ---- Search Function ----
-    async function searchYouTube(query) {
-        const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(query)}&key=${API_KEY}`;
+    // ---- Parse ISO duration like PT4M10S into seconds ----
+    function parseDuration(iso) {
+        let match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
 
-        const response = await fetch(url);
-        const data = await response.json();
-        return data.items || [];
+        const hours = parseInt(match?.[1] || 0);
+        const minutes = parseInt(match?.[2] || 0);
+        const seconds = parseInt(match?.[3] || 0);
+
+        return hours * 3600 + minutes * 60 + seconds;
     }
 
-    // ---- Update Firebase Queue ----
-    async function addToQueue(song) {
-        const sessionRef = doc(db, "sessions", sessionCode);
+    // ---- Search YouTube + fetch duration ----
+    async function searchYouTube(query) {
+        const searchUrl =
+            `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=10&q=${encodeURIComponent(query)}&key=${API_KEY}`;
 
-        await setDoc(sessionRef, {
-            queue: [song],
-        }, { merge: true });
+        const searchRes = await fetch(searchUrl).then(res => res.json());
+        let items = searchRes.items || [];
+
+        // Fetch duration for each result
+        for (let item of items) {
+            const vid = item.id.videoId;
+            const videoMetaUrl =
+                `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${vid}&key=${API_KEY}`;
+
+            const videoDetails = await fetch(videoMetaUrl).then(r => r.json());
+            const durationISO = videoDetails.items?.[0]?.contentDetails?.duration || "PT3M";
+            const durationSec = parseDuration(durationISO);
+
+            item.duration = durationSec;
+        }
+
+        return items;
+    }
+
+    // ---- Append to Firestore queue and tell if this was first song ----
+    async function addToQueue(sessionCode, song) {
+        const sessionRef = doc(db, "sessions", sessionCode);
+        const snapshot = await getDoc(sessionRef);
+        const existingQueue = snapshot.data()?.queue || [];
+
+        const isFirst = existingQueue.length === 0;
+        const newQueue = [...existingQueue, song];
+
+        await setDoc(sessionRef, { queue: newQueue }, { merge: true });
+
+        return isFirst;
     }
 
     // ---- Render Search Results ----
@@ -194,45 +229,151 @@ function initializeSearchUI(sessionCode) {
                 <button class="btn add-btn">Add</button>
             `;
 
-            // Add button click
-            card.querySelector(".add-btn").addEventListener("click", () => {
-                addSongToQueueUI({ title, videoId, thumbnail });
-                addToQueue({ title, videoId, thumbnail });
+            card.querySelector(".add-btn").addEventListener("click", async () => {
+                const songObj = {
+                    title,
+                    videoId,
+                    thumbnail,
+                    duration: item.duration
+                };
+
+                // Update UI immediately
+                addSongToQueueUI(songObj);
+
+                // Persist to Firestore and know if this is the first song
+                const firstSong = await addToQueue(sessionCode, songObj);
+
+                // Auto start ONLY when first song is added
+                if (firstSong) {
+                    isPlaying = true;
+                    playFromIndex(sessionCode, 0);
+                }
             });
 
             resultsDiv.appendChild(card);
         });
     }
 
-    // ---- Show item in Queue (UI only) ----
+    // ---- Queue UI: Add item with Play + Remove ----
     function addSongToQueueUI(song) {
         document.getElementById("queue-placeholder")?.remove();
 
         const card = document.createElement("div");
         card.className = "d-flex align-items-center mb-2 queue-item";
-        card.dataset.videoId = song.videoId; // Store id for removal
+        card.dataset.videoId = song.videoId;
 
         card.innerHTML = `
-        <img src="${song.thumbnail}" width="60" height="60" class="rounded me-2">
-        <p class="mb-0 flex-grow-1">${song.title}</p>
-        <button class="btn play-btn me-2">Play</button>
-        <button class="btn remove-btn">Remove</button>
-    `;
+            <img src="${song.thumbnail}" width="60" height="60" class="rounded me-2">
+            <p class="mb-0 flex-grow-1">${song.title}</p>
+            <button class="btn play-btn me-2">Play</button>
+            <button class="btn remove-btn me-2">Remove</button>
+        `;
 
-        // Attach Remove click handler
-        card.querySelector(".remove-btn").addEventListener("click", () => {
-            removeSongFromQueue(song.videoId, card);
+        // Manual play: start playback from this song
+        card.querySelector(".play-btn").addEventListener("click", () => {
+            startPlaybackFrom(sessionCode, song.videoId);
         });
 
-        // Play click handler
-        card.querySelector(".play-btn").addEventListener("click", () => {
-            playSong(song.videoId);
+        // Remove from queue
+        card.querySelector(".remove-btn").addEventListener("click", () => {
+            removeSongFromQueue(sessionCode, song.videoId, card);
         });
 
         queueDiv.appendChild(card);
     }
 
-    // ---- Button Click Listener ----
+    // ---- Highlight "Now Playing" ----
+    function highlightCurrentPlaying(videoId) {
+        document.querySelectorAll(".queue-item").forEach(card => {
+            card.classList.remove("now-playing");
+        });
+
+        document.querySelectorAll(".queue-item").forEach(card => {
+            if (card.dataset.videoId === videoId) {
+                card.classList.add("now-playing");
+            }
+        });
+    }
+
+    // ---- Play from a given index in Firestore queue ----
+    async function playFromIndex(sessionCode, index) {
+        const sessionRef = doc(db, "sessions", sessionCode);
+        const snap = await getDoc(sessionRef);
+        const data = snap.data() || {};
+        const queue = data.queue || [];
+
+        if (!queue.length || index >= queue.length) {
+            isPlaying = false;
+            return;
+        }
+
+        const song = queue[index];
+
+        highlightCurrentPlaying(song.videoId);
+        playSong(song.videoId);
+
+        const durationSec =
+            song.duration && song.duration > 0 ? song.duration : 180;
+
+        clearTimeout(playTimer);
+        playTimer = setTimeout(() => {
+            playFromIndex(sessionCode, index + 1);
+        }, durationSec * 1000);
+    }
+
+    // ---- Start playback from a specific videoId ----
+    function startPlaybackFrom(sessionCode, videoId) {
+        clearTimeout(playTimer);
+        isPlaying = true;
+
+        const sessionRef = doc(db, "sessions", sessionCode);
+        getDoc(sessionRef).then(snap => {
+            const data = snap.data() || {};
+            const queue = data.queue || [];
+
+            const idx = queue.findIndex(s => s.videoId === videoId);
+            if (idx === -1) return;
+
+            playFromIndex(sessionCode, idx);
+        });
+    }
+
+    // ---- Remove song from Firestore queue + UI ----
+    async function removeSongFromQueue(sessionCode, videoId, cardElement) {
+        const sessionRef = doc(db, "sessions", sessionCode);
+        const sessionSnapshot = await getDoc(sessionRef);
+        const currentQueue = sessionSnapshot.data()?.queue || [];
+
+        const updatedQueue = currentQueue.filter(song => song.videoId !== videoId);
+
+        await setDoc(sessionRef, { queue: updatedQueue }, { merge: true });
+
+        cardElement.remove();
+
+        if (updatedQueue.length === 0) {
+            const placeholder = document.createElement("p");
+            placeholder.id = "queue-placeholder";
+            placeholder.className = "text-muted";
+            placeholder.textContent = "No songs in queue yet…";
+            queueDiv.appendChild(placeholder);
+            clearTimeout(playTimer);
+            isPlaying = false;
+        }
+    }
+
+    // ---- Open YouTube Music / Browser ----
+    function playSong(videoId) {
+        const appLink = `youtubemusic://music.youtube.com/watch?v=${videoId}`;
+        const browserLink = `https://music.youtube.com/watch?v=${videoId}`;
+
+        window.location.href = appLink;
+
+        setTimeout(() => {
+            window.open(browserLink, "_blank");
+        }, 500);
+    }
+
+    // ---- Search button ----
     searchBtn.addEventListener("click", async () => {
         const query = searchBox.value.trim();
         if (!query) return;
@@ -248,44 +389,4 @@ function initializeSearchUI(sessionCode) {
 
         renderResults(results);
     });
-
-    async function removeSongFromQueue(videoId, cardElement) {
-        const sessionRef = doc(db, "sessions", sessionCode);
-
-        // Read current queue
-        const sessionSnapshot = await getDoc(sessionRef);
-        let currentQueue = sessionSnapshot.data()?.queue || [];
-
-        // Filter out removed song
-        const updatedQueue = currentQueue.filter(song => song.videoId !== videoId);
-
-        // Update database
-        await setDoc(sessionRef, { queue: updatedQueue }, { merge: true });
-
-        // Remove UI element
-        cardElement.remove();
-
-        // Show placeholder if queue becomes empty
-        if (updatedQueue.length === 0) {
-            const placeholder = document.createElement("p");
-            placeholder.id = "queue-placeholder";
-            placeholder.className = "text-muted";
-            placeholder.textContent = "No songs in queue yet…";
-            queueDiv.appendChild(placeholder);
-        }
-
-    }
-
-    function playSong(videoId) {
-        const appLink = `youtubemusic://music.youtube.com/watch?v=${videoId}`;
-        const browserLink = `https://music.youtube.com/watch?v=${videoId}`;
-
-        // Try opening YouTube Music app
-        window.location.href = appLink;
-
-        // Fallback to browser player
-        setTimeout(() => {
-            window.open(browserLink, "_blank");
-        }, 500);
-    }
 }

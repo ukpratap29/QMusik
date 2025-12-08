@@ -3,23 +3,23 @@
 // Update Queue
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-import { getFirestore, collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
+// Your web app's Firebase configuration
+const firebaseConfig = {
     apiKey: "AIzaSyCUOOLfb98oxiZoGuZB_GVES2up0lMA3FA",
     authDomain: "qmusik-2006b.firebaseapp.com",
     projectId: "qmusik-2006b",
     storageBucket: "qmusik-2006b.firebasestorage.app",
     messagingSenderId: "904530626138",
     appId: "1:904530626138:web:0e2bc984a639b0773eba63"
-  };
+};
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-  async function createNewSession(code) {
+async function createNewSession(code) {
     await setDoc(doc(db, "sessions", code), {
         createdAt: Date.now(),
         queue: [],
@@ -129,16 +129,16 @@ document.addEventListener("DOMContentLoaded", () => {
     createPlaylistBtn.addEventListener("click", async () => {
         const sessionCode = generatedCodeElement.textContent.replace("Code: ", "");
         await createNewSession(sessionCode);
-        refreshBtn.style.display = "none"; 
+        refreshBtn.style.display = "none";
         createPlaylistBtn.style.display = "none";
         fetch("search_res_queue.html")
-        .then(res => res.text())
-        .then(html => {
-            document.getElementById('search-res-q').innerHTML = html;
+            .then(res => res.text())
+            .then(html => {
+                document.getElementById('search-res-q').innerHTML = html;
 
-            // Attach event listeners inside the loaded HTML
-            initializeSearchUI(sessionCode);
-        });
+                // Attach event listeners inside the loaded HTML
+                initializeSearchUI(sessionCode);
+            });
     });
 });
 
@@ -191,7 +191,7 @@ function initializeSearchUI(sessionCode) {
                 <div class="flex-grow-1">
                     <p class="mb-0" style="font-size: 0.9rem;">${title}</p>
                 </div>
-                <button class="btn btn-sm btn-outline-primary add-btn">Add</button>
+                <button class="btn add-btn">Add</button>
             `;
 
             // Add button click
@@ -209,12 +209,25 @@ function initializeSearchUI(sessionCode) {
         document.getElementById("queue-placeholder")?.remove();
 
         const card = document.createElement("div");
-        card.className = "d-flex align-items-center mb-2";
+        card.className = "d-flex align-items-center mb-2 queue-item";
+        card.dataset.videoId = song.videoId; // Store id for removal
 
         card.innerHTML = `
-            <img src="${song.thumbnail}" width="60" height="60" class="rounded me-2">
-            <p class="mb-0">${song.title}</p>
-        `;
+        <img src="${song.thumbnail}" width="60" height="60" class="rounded me-2">
+        <p class="mb-0 flex-grow-1">${song.title}</p>
+        <button class="btn play-btn me-2">Play</button>
+        <button class="btn remove-btn">Remove</button>
+    `;
+
+        // Attach Remove click handler
+        card.querySelector(".remove-btn").addEventListener("click", () => {
+            removeSongFromQueue(song.videoId, card);
+        });
+
+        // Play click handler
+        card.querySelector(".play-btn").addEventListener("click", () => {
+            playSong(song.videoId);
+        });
 
         queueDiv.appendChild(card);
     }
@@ -235,4 +248,44 @@ function initializeSearchUI(sessionCode) {
 
         renderResults(results);
     });
+
+    async function removeSongFromQueue(videoId, cardElement) {
+        const sessionRef = doc(db, "sessions", sessionCode);
+
+        // Read current queue
+        const sessionSnapshot = await getDoc(sessionRef);
+        let currentQueue = sessionSnapshot.data()?.queue || [];
+
+        // Filter out removed song
+        const updatedQueue = currentQueue.filter(song => song.videoId !== videoId);
+
+        // Update database
+        await setDoc(sessionRef, { queue: updatedQueue }, { merge: true });
+
+        // Remove UI element
+        cardElement.remove();
+
+        // Show placeholder if queue becomes empty
+        if (updatedQueue.length === 0) {
+            const placeholder = document.createElement("p");
+            placeholder.id = "queue-placeholder";
+            placeholder.className = "text-muted";
+            placeholder.textContent = "No songs in queue yet…";
+            queueDiv.appendChild(placeholder);
+        }
+
+    }
+
+    function playSong(videoId) {
+        const appLink = `youtubemusic://music.youtube.com/watch?v=${videoId}`;
+        const browserLink = `https://music.youtube.com/watch?v=${videoId}`;
+
+        // Try opening YouTube Music app
+        window.location.href = appLink;
+
+        // Fallback to browser player
+        setTimeout(() => {
+            window.open(browserLink, "_blank");
+        }, 500);
+    }
 }

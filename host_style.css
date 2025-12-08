@@ -1,12 +1,7 @@
 #cr-playlist{
-    /* position: relative; */
-    /* flex: 1;          This makes it fill the remaining viewport */
-    /* overflow-y: auto; */
-
-
     overflow-y: auto !important;
-    flex: 1;               /* allows proper stretch */
-    min-height: 0;         /* REQUIRED for flex children to scroll */
+    flex: 1;
+    min-height: 0; 
     flex-grow: 0 !important;
     min-height: auto !important;
 
@@ -26,12 +21,14 @@
     align-self: center;
     width: 35%;
     border-radius: 12px;
+    background: #ffffff !important;
 }
 
 #enter-code:focus, #search-box:focus {
     outline: none;
     border: 1px solid #b59a72;
-    box-shadow: 0 0 0 .25rem #F0E4D3;
+    box-shadow: 0 0 0 .15rem #F0E4D3;
+    background: #ffffff !important;
 }
 
 #or {
@@ -100,6 +97,7 @@
 #search-box {
     border-top-left-radius: 12px;
     border-bottom-left-radius: 12px;
+    background: #ffffff !important;
 }
 
 #head-res, #head-queue {
@@ -113,4 +111,25 @@
     align-self: center;
     font-size: 0.7rem;
     margin-bottom: 8px;
+}
+
+.add-btn, .remove-btn, .play-btn {
+    background: #F0E4D3;
+    border: 1px solid #b59a72;
+    color: #9F5255;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    padding: 4px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.add-btn:hover, .remove-btn:hover, .play-btn:hover {
+    background: #9F5255;
+    font-family: 'Courier New', Courier, monospace;
+    color: #b59a72;
+}
+
+.add-btn:active, .remove-btn:active, .play-btn:active {
+    transform: scale(0.85);
 }

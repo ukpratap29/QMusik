@@ -8,7 +8,8 @@ import {
     collection,
     doc,
     setDoc,
-    getDoc
+    getDoc,
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
 // Your web app's Firebase configuration
@@ -404,6 +405,60 @@ function initializeSearchUI(sessionCode) {
 
         renderResults(results);
     });
+
+    // ---- Live queue listener (guest sees current queue + highlight) ----
+    const sessionRef = doc(db, "sessions", sessionCode);
+
+    onSnapshot(sessionRef, (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const queue = data.queue || [];
+        const nowPlayingVideoId = data.nowPlayingVideoId || null;
+
+        renderLiveQueue(queue, nowPlayingVideoId);
+    });
+
+    function renderLiveQueue(queue, nowPlayingVideoId) {
+        queueDiv.innerHTML = "";
+        if (queue.length === 0) {
+            const placeholder = document.createElement("p");
+            placeholder.id = "queue-placeholder";
+            placeholder.className = "text-muted";
+            placeholder.textContent = "No songs in queue yet…";
+            queueDiv.appendChild(placeholder);
+            return;
+        }
+
+        queue.forEach(song => {
+            const card = document.createElement("div");
+            card.className = "d-flex align-items-center mb-2 queue-item";
+            card.dataset.videoId = song.videoId;
+
+            card.innerHTML = `
+            <img src="${song.thumbnail}" width="60" height="60" class="rounded me-2">
+            <p class="mb-0 flex-grow-1">${song.title}</p>
+            <button class="btn play-btn me-2">Play</button>
+            <button class="btn remove-btn me-2">Remove</button>
+        `;
+
+            // Manual play: start playback from this song
+            card.querySelector(".play-btn").addEventListener("click", () => {
+                startPlaybackFrom(sessionCode, song.videoId);
+            });
+
+            // Remove from queue
+            card.querySelector(".remove-btn").addEventListener("click", () => {
+                removeSongFromQueue(sessionCode, song.videoId, card);
+            });
+
+            if (nowPlayingVideoId && song.videoId === nowPlayingVideoId) {
+                card.classList.add("now-playing");
+            }
+
+            queueDiv.appendChild(card);
+        });
+
+    }
 }
 
 async function restoreExistingQueueUI(sessionCode) {
@@ -468,7 +523,7 @@ async function processSessionExists(sessionCode) {
 
                 // Restore existing queue only if session already existed
 
-                restoreExistingQueueUI(sessionCode);
+                // restoreExistingQueueUI(sessionCode);
             });
     }
 }

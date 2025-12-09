@@ -29,6 +29,18 @@ let playTimer = null;
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+async function checkSessionExists(code) {
+    alert("Inside checkSessionExists");
+    const sessionRef = doc(db, "sessions", code);
+    const snap = await getDoc(sessionRef);
+    if (snap.exists()) {
+        alert("Inside checkSessionExists snap exists");
+        await setDoc(sessionRef, { hostActive: true }, { merge: true });
+        return true;
+    }
+    return false;
+}
+
 async function createNewSession(code) {
     await setDoc(doc(db, "sessions", code), {
         createdAt: Date.now(),
@@ -84,6 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
         generatedCodeElement.textContent = `Code: ${code}`;
         showNewUIFields();
         hideOldUIFields();
+        processSessionExists(code);
     });
 
     refreshBtn.addEventListener("click", () => {
@@ -100,6 +113,8 @@ document.addEventListener("DOMContentLoaded", () => {
             generatedCodeElement.textContent = `Code: ${enteredCode}`;
             showNewUIFields();
             hideOldUIFields();
+            alert("Inside input field eventListener");
+            processSessionExists(enteredCode);
         } else {
             generatedCodeElement.textContent = "";
             hideNewUIFields();
@@ -303,11 +318,14 @@ function initializeSearchUI(sessionCode) {
         const queue = data.queue || [];
 
         if (!queue.length || index >= queue.length) {
+            await setDoc(sessionRef, { nowPlayingVideoId: null }, { merge: true });
             isPlaying = false;
             return;
         }
 
         const song = queue[index];
+        // Save now playing to Firestore so guests can see highlight
+        await setDoc(sessionRef, { nowPlayingVideoId: song.videoId }, { merge: true });
 
         highlightCurrentPlaying(song.videoId);
         playSong(song.videoId);
@@ -389,4 +407,74 @@ function initializeSearchUI(sessionCode) {
 
         renderResults(results);
     });
+}
+
+async function restoreExistingQueueUI(sessionCode) {
+    const queueDiv = document.getElementById("queue");
+    const sessionRef = doc(db, "sessions", sessionCode);
+    const snap = await getDoc(sessionRef);
+
+    const queue = snap.data()?.queue || [];
+    const nowPlaying = snap.data()?.nowPlayingVideoId || null;
+
+    if (queue.length === 0) return;
+
+    // Remove placeholder
+    document.getElementById("queue-placeholder")?.remove();
+
+    queue.forEach(song => {
+        const card = document.createElement("div");
+        card.className = "d-flex align-items-center mb-2 queue-item";
+        card.dataset.videoId = song.videoId;
+
+        // If song is currently playing → highlight it
+        if (song.videoId === nowPlaying) {
+            card.classList.add("now-playing");
+        }
+
+        card.innerHTML = `
+            <img src="${song.thumbnail}" width="60" height="60" class="rounded me-2">
+            <p class="mb-0 flex-grow-1">${song.title}</p>
+            <button class="btn play-btn me-2">Play</button>
+            <button class="btn remove-btn me-2">Remove</button>
+        `;
+
+        // Play event
+        card.querySelector(".play-btn").addEventListener("click", () => {
+            startPlaybackFrom(sessionCode, song.videoId);
+        });
+
+        // Remove event
+        card.querySelector(".remove-btn").addEventListener("click", () => {
+            removeSongFromQueue(sessionCode, song.videoId, card);
+        });
+
+        queueDiv.appendChild(card);
+    });
+}
+
+async function processSessionExists(sessionCode) {
+    const refreshBtn = document.getElementById("refresh-code");
+    const createPlaylistBtn = document.getElementById("cr-playlist-btn");
+    alert("Inside processSessionExists");
+    const sessionExists = await checkSessionExists(sessionCode);
+    alert("Session Exists: " + sessionExists);
+    if (sessionExists) { 
+    refreshBtn.style.display = "none";
+    createPlaylistBtn.style.display = "none";
+
+    fetch("search_res_queue.html")
+        .then(res => res.text())
+        .then(html => {
+            document.getElementById("search-res-q").innerHTML = html;
+
+            // Attach event listeners inside the loaded HTML for THIS session
+            initializeSearchUI(sessionCode);
+
+            // Restore existing queue only if session already existed
+            
+            restoreExistingQueueUI(sessionCode);
+            
+        });
+    }
 }

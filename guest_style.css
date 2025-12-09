@@ -1,0 +1,30 @@
+#guest-mode {
+    font-family: "Square Peg", cursive;
+    font-size: 1.7rem;
+    color: #9F5255;
+    margin-bottom: 8px;
+}
+
+#guest-code {
+    font-family:'Courier New', Courier, monospace;
+    font-size: 1rem;
+    text-align: center;
+    align-self: center;
+    width: 40%;
+    border-radius: 12px;
+    background: #ffffff !important;
+}
+
+#guest-code:focus {
+    outline: none;
+    border: 1px solid #b59a72;
+    box-shadow: 0 0 0 .15rem #F0E4D3;
+    background: #ffffff !important;
+}
+
+#guest-join-note {
+    font-family: 'Courier New', Courier, monospace;
+    align-self: center;
+    font-size: 0.7rem;
+    margin-bottom: 8px;
+}

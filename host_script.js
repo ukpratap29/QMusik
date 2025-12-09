@@ -30,11 +30,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 async function checkSessionExists(code) {
-    alert("Inside checkSessionExists");
     const sessionRef = doc(db, "sessions", code);
     const snap = await getDoc(sessionRef);
     if (snap.exists()) {
-        alert("Inside checkSessionExists snap exists");
         await setDoc(sessionRef, { hostActive: true }, { merge: true });
         return true;
     }
@@ -113,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
             generatedCodeElement.textContent = `Code: ${enteredCode}`;
             showNewUIFields();
             hideOldUIFields();
-            alert("Inside input field eventListener");
             processSessionExists(enteredCode);
         } else {
             generatedCodeElement.textContent = "";
@@ -456,25 +453,22 @@ async function restoreExistingQueueUI(sessionCode) {
 async function processSessionExists(sessionCode) {
     const refreshBtn = document.getElementById("refresh-code");
     const createPlaylistBtn = document.getElementById("cr-playlist-btn");
-    alert("Inside processSessionExists");
     const sessionExists = await checkSessionExists(sessionCode);
-    alert("Session Exists: " + sessionExists);
-    if (sessionExists) { 
-    refreshBtn.style.display = "none";
-    createPlaylistBtn.style.display = "none";
+    if (sessionExists) {
+        refreshBtn.style.display = "none";
+        createPlaylistBtn.style.display = "none";
 
-    fetch("search_res_queue.html")
-        .then(res => res.text())
-        .then(html => {
-            document.getElementById("search-res-q").innerHTML = html;
+        fetch("search_res_queue.html")
+            .then(res => res.text())
+            .then(html => {
+                document.getElementById("search-res-q").innerHTML = html;
 
-            // Attach event listeners inside the loaded HTML for THIS session
-            initializeSearchUI(sessionCode);
+                // Attach event listeners inside the loaded HTML for THIS session
+                initializeSearchUI(sessionCode);
 
-            // Restore existing queue only if session already existed
-            
-            restoreExistingQueueUI(sessionCode);
-            
-        });
+                // Restore existing queue only if session already existed
+
+                restoreExistingQueueUI(sessionCode);
+            });
     }
 }

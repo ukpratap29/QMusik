@@ -94,6 +94,13 @@ function initializeGuestUI(sessionCode) {
         return hours * 3600 + minutes * 60 + seconds;
     }
 
+        // Clear results when input field is empty
+    searchBox.addEventListener("input", () => {
+        if (searchBox.value.trim() === "") {
+            resultsDiv.innerHTML = `<p id="sr-song-placeholder" class="text-muted">Search for a song above…</p>`;
+        }
+    });
+
     // ---- Search YouTube + fetch duration ----
     async function searchYouTube(query) {
         const searchUrl =

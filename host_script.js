@@ -406,6 +406,13 @@ function initializeSearchUI(sessionCode) {
         renderResults(results);
     });
 
+    // Clear results when input field is empty
+    searchBox.addEventListener("input", () => {
+        if (searchBox.value.trim() === "") {
+            resultsDiv.innerHTML = `<p id="sr-song-placeholder" class="text-muted">Search for a song above…</p>`;
+        }
+    });
+
     // ---- Live queue listener (guest sees current queue + highlight) ----
     const sessionRef = doc(db, "sessions", sessionCode);
 

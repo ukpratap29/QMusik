@@ -154,12 +154,75 @@ document.addEventListener("DOMContentLoaded", () => {
             .then(res => res.text())
             .then(html => {
                 document.getElementById("search-res-q").innerHTML = html;
+                const playQBtn = document.getElementById("play-q-btn");
+                playQBtn.style.display = "block";
 
                 // Attach event listeners inside the loaded HTML for THIS session
                 initializeSearchUI(sessionCode);
+
+                playQBtn.addEventListener("click", async () => {
+                    await playAllShuffled(sessionCode);
+                });
             });
     });
 });
+
+async function playAllShuffled(sessionCode) {
+    try {
+        const sessionRef = doc(db, "sessions", sessionCode);
+        const snap = await getDoc(sessionRef);
+
+        const data = snap.data() || {};
+        const queue = Array.isArray(data.queue) ? data.queue : [];
+
+        // Extract videoIds (filter duplicates and ensure videoId exists)
+        const videoIds = queue
+            .map(s => s.videoId)
+            .filter(Boolean);
+
+        // Shuffle a local copy
+        const shuffled = videoIds.slice();
+        shuffleArray(shuffled);
+
+        // Open a single playlist URL
+        openYouTubeVideoPlaylist(shuffled);
+
+    } catch (err) {
+        console.error("playAllShuffled error:", err);
+        alert("Failed to fetch playlist. See console for details.");
+    }
+}
+
+// Fisher–Yates shuffle (in-place)
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+// Build and open a YouTube Music "watch_videos" URL for a list of videoIds
+function openYouTubeVideoPlaylist(videoIds) {
+    if (!videoIds || videoIds.length === 0) return;
+
+    // Limit: join with comma. If extremely long, the browser may truncate or refuse.
+    const idsParam = encodeURIComponent(videoIds.join(','));
+    const webUrl = `https://www.youtube.com/watch_videos?video_ids=${idsParam}`;
+
+    // Try opening in-app protocol first (may prompt on mobile) then fallback
+    // to the web URL after a small delay.
+    try {
+        // Attempt app protocol — this will usually prompt on mobile (cannot be avoided).
+        window.location.href = `vnd.youtube://www.youtube.com/watch_videos?video_ids=${videoIds.join(',')}`;
+    } catch (e) {
+        // ignore
+    }
+
+    setTimeout(() => {
+        window.open(webUrl, '_blank');
+    }, 400);
+}
+
 
 // -------------------------------------------------
 // SEARCH + QUEUE + PLAYBACK FOR A GIVEN SESSION

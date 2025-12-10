@@ -113,7 +113,7 @@
     margin-bottom: 8px;
 }
 
-.add-btn, .remove-btn, .play-btn {
+.add-btn, .remove-btn, .play-btn, .play-q-btn {
     background: #F0E4D3;
     border: 1px solid #b59a72;
     color: #9F5255;
@@ -124,13 +124,13 @@
     cursor: pointer;
 }
 
-.add-btn:hover, .remove-btn:hover, .play-btn:hover {
+.add-btn:hover, .remove-btn:hover, .play-btn:hover, .play-q-btn:hover {
     background: #9F5255;
     font-family: 'Courier New', Courier, monospace;
     color: #b59a72;
 }
 
-.add-btn:active, .remove-btn:active, .play-btn:active {
+.add-btn:active, .remove-btn:active, .play-btn:active, .play-q-btn:active {
     transform: scale(0.85);
 }
 

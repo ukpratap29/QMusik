@@ -320,10 +320,10 @@ function initializeSearchUI(sessionCode) {
                 const firstSong = await addToQueue(sessionCode, songObj);
 
                 // Auto start ONLY when first song is added
-                if (firstSong) {
-                    isPlaying = true;
-                    playFromIndex(sessionCode, 0);
-                }
+                // if (firstSong) {
+                //     isPlaying = true;
+                //     playFromIndex(sessionCode, 0);
+                // }
             });
 
             resultsDiv.appendChild(card);
